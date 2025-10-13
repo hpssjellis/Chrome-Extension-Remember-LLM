@@ -5,3 +5,7 @@ Work on the extension off-line while copying the entire folder, then when it wor
 move the files to the main part of the repository. quck and easy and allows going back to solve   errors.
 
 
+
+
+1. summarize15 the original testing extension
+1. extension-remember04 still not working
