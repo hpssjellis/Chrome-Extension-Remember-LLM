@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "AI Study Assistant v1-4-0",
+  "version": "1.04.0",
+  "description": "Uses Chrome's built-in AI for structured web summarization and spaced repetition memory testing.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "background": {
+    "service_worker": "myServiceWorker.js"
+  },
+  "side_panel": {
+    "default_path": "mySidePanel.html"
+  }
+}
