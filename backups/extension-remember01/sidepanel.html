@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant</title>
+    <script src="https://unpkg.com/vis-timeline@7.7.1/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <link
+        href="https://unpkg.com/vis-timeline@7.7.1/styles/vis-timeline-graph2d.min.css"
+        rel="stylesheet"
+        type="text/css"
+    />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.4;
+        }
+        button, input[type="text"], input[type="number"], textarea, select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 4px 0;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #f0f0f0;
+        }
+        button:hover {
+            background-color: #e0e0e0;
+        }
+        .mySection {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        #myTimeline {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        .myActiveTabButton {
+            background-color: #007bff !important;
+            color: white;
+        }
+        .myButtonDanger { background-color: #dc3545; color: white; }
+        .myButtonPrimary { background-color: #28a745; color: white; }
+        .myTabContent { display: none; }
+        .myVisible { display: block; }
+        #myCustomTooltip {
+            position: absolute;
+            display: none;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            z-index: 1000;
+            white-space: normal;
+            pointer-events: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body onload="myInitializeApp()">
+    <h1 style="font-size: 1.5rem; margin-top: 0;">AI Study Assistant</h1>
+
+    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <button id="myTabButtonSummarize" onclick="mySwitchTab('summarize')" class="myActiveTabButton" style="flex: 1;">Summarize Page</button>
+        <button id="myTabButtonRemember" onclick="mySwitchTab('remember')" style="flex: 1;">Remember Timeline</button>
+    </div>
+
+    <div id="myStatus" style="font-style: italic; color: #555; margin-bottom: 10px;">Initializing...</div>
+    <textarea id="myOutput" rows="8" readonly style="width: 100%; margin-bottom: 10px; padding: 10px; background-color: #eee;"></textarea>
+    <button id="myProcessImportButton" onclick="myProcessImportData()" style="display: none; width: 100%; margin-bottom: 10px;">Process Imported Data</button>
+
+    <div id="myTabContentSummarize" class="myTabContent myVisible" style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; gap: 8px;">
+            <button onclick="mySummarizePage(myGetPageText)" style="flex: 1;">
+                Summarize All Text
+            </button>
+            <button onclick="mySummarizePage(myGetSelectedText)" style="flex: 1;">
+                Summarize Selection
+            </button>
+        </div>
+        <textarea id="mySummarizedContentArea" readonly placeholder="Summary will appear here..." style="flex-grow: 1; width: 100%; padding: 8px; resize: none;"></textarea>
+        <div id="mySummarizeStatusMessage" style="font-style: italic; color: #007bff;">Ready for summarization.</div>
+    </div>
+
+    <div id="myTabContentRemember" class="myTabContent">
+
+        <div class="mySection">
+            <h3>Add/Edit Item</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center;">
+                <label>ID: <input type="number" id="myEntryIdInput" readonly style="width: 50px;" /></label>
+                <label>Date: <input type="datetime-local" id="myEntryDateInput" style="flex-grow: 1;" /></label>
+            </div>
+            
+            <label style="display: block;">Hint (Question):</label>
+            <input type="text" id="myEntryContentInput" style="width: 100%;" placeholder="e.g., Photosynthesis equation" />
+
+            <label style="display: block;">Answer (Long Description):</label>
+            <textarea id="myEntryLongDescriptionInput" rows="3" style="width: 100%;" placeholder="The generated or correct answer..."></textarea>
+            
+            <div style="display: flex; gap: 5px; margin-top: 10px;">
+                <button onclick="myGenerateLongDescription()" style="flex: 2; background-color: #007bff; color: white;">
+                    Generate Answer (LLM)
+                </button>
+                <button onclick="myAddEntry(); myPopulateSelectBox(); mySaveToLocalStorage();" class="myButtonPrimary" style="flex: 2;">Add / Update</button>
+                <button onclick="myAutofillNextEntry()" style="flex: 1;">Next Entry</button>
+                <button onclick="myDeleteEntry()" class="myButtonDanger" style="flex: 1;">Delete</button>
+            </div>
+            <div id="myGenerationStatus" style="font-style: italic; color: #007bff; margin-top: 5px;">Ready to Generate.</div>
+        </div>
+
+        <h3>Review Timeline</h3>
+        <div id="myTimeline"></div>
+        <div id="myCustomTooltip"></div>
+
+        <div class="mySection" style="margin-top: 20px;">
+            <h3>Test Your Memory</h3>
+
+            <div style="margin-bottom: 10px; padding: 8px; border: 1px solid #007bff; border-radius: 4px; background-color: #f0f8ff;">
+                <input type="checkbox" id="myMinimumOneDayCheckbox" checked onclick="mySaveToLocalStorage()">
+                <label for="myMinimumOneDayCheckbox" style="font-weight: bold; color: #007bff;">
+                    Minimum One Day for Success (Long-Term Mode)
+                </label>
+                <div id="myFactorDisplay" style="margin-top: 5px;"></div>
+            </div>
+
+            <select id="myQuestionSelectBox" size="1" onchange="myLoadQuestion(this.value);" style="width: 100%; margin-bottom: 10px;">
+            </select>
+
+            <label style="display: block;">Question Hint: <input type="text" id="myHintInput" readonly style="width: 100%;"></label>
+            <input type="hidden" id="myPresentNumber"> 
+            
+            <label style="display: block; margin-top: 10px;">Your Recall/Answer:</label>
+            <textarea id="myUserTestInput" rows="3" placeholder="Enter your remembered statement..." style="width: 100%;"></textarea>
+
+            <button id="myCheckButton" onclick="myCheckSimilarity()" style="width: 100%; background-color: #4CAF50; color: white; margin-top: 10px;">
+                Check Similarity & Update Schedule
+            </button>
+        </div>
+
+        <div class="mySection">
+            <h3>⚙️ LLM Generation Prompt Configuration</h3>
+            <label for="myGenerationPromptInput" style="display: block; font-weight: bold;">
+                System Instruction for 'Generate Answer'
+            </label>
+            <textarea id="myGenerationPromptInput" rows="3" style="width: 100%;" onchange="mySaveToLocalStorage()">
+You are an expert summarizer and fact generator for flashcards. Given a short term, concept, or question (the Hint), your task is to provide the shortest, most concise, and accurate factual summary or answer possible (the Long Description). The response MUST be a single, short sentence or a few key facts, perfect for memorization.
+            </textarea>
+            <p style="font-size: 0.8em; margin: 5px 0 0 0;">(This controls the AI's personality when generating answers. Changes are saved automatically.)</p>
+        </div>
+
+        <div class="mySection">
+            <h3>Data Management</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                <button onclick="myExportJsonAll()">Export JSON - All Data</button>
+                <button onclick="myExportCsv()">Export CSV</button>
+                <button onclick="myPrepareImport()">Import File (.json/.csv)</button>
+                <button class="myButtonDanger" onclick="myClearAllLocalData()">Clear All Data</button>
+            </div>
+        </div>
+
+    </div>
+    <script src="mySidePanelLogic.js" type="module"></script>
+</body>
+</html>
