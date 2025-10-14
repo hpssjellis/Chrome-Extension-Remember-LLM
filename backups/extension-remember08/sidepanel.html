@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Content Extractor Pro</title>
+
+    <link rel="stylesheet" type="text/css" href="vis-timeline.min.css">
+    <script src="vis-timeline.min.js"></script>
+    <script type="module" src="mySidePanel.js"></script>
+
+    <style>
+        /* Minimal CSS kept for layout structure */
+        body {
+            margin: 0; 
+            padding: 16px; 
+            min-height: 100vh; 
+            display: flex; 
+            flex-direction: column;
+            font-family: sans-serif;
+        }
+
+        #myVisTimeline {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ccc;
+            margin-top: 16px;
+        }
+
+        .container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .my-button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .my-button-group button {
+            flex: 1;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        #myContentArea, #myResponseArea {
+            flex-grow: 1;
+            width: 100%;
+            padding: 8px;
+            resize: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="font-size:1.25rem;">My Page Content Extractor</h1>
+
+        <div class="my-button-group">
+            <input type="button" value="Extract Page Content" id="myShowAllBtn" style="cursor:pointer;">
+            <input type="button" value="Extract Selection" id="myShowSelectedBtn" style="cursor:pointer;">
+        </div>
+
+        <input type="button" value="Summarize & Add to Timeline 🧠" id="myGenerateTimelineBtn" style="padding: 8px; cursor:pointer; background-color: #d0e7ff; font-weight: bold;">
+
+        <div id="myStatusMessage" style="color:blue;"></div>
+
+        <textarea id="myContentArea" readonly placeholder="Content must be extracted first (above) or loaded from the timeline."></textarea>
+
+        <label for="myResponseArea" style="font-weight:bold;">Your Response:</label>
+        <textarea id="myResponseArea" placeholder="Type your recalled content here..." style="min-height: 100px;"></textarea>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="display:flex; align-items:center; gap: 4px;">
+                    <input type="checkbox" id="myMinOneDayCheckbox" checked>
+                    Min 1 Day
+                </label>
+                <input type="button" value="LLM Similarity Check" id="myLLMCheckBtn" style="padding: 6px 12px; cursor:pointer;">
+            </div>
+
+            <div id="myLLMFeedback" style="padding: 8px; border: 1px dashed #ccc; min-height: 20px;">
+                LLM Similarity: N/A
+            </div>
+        </div>
+
+        <div class="my-button-group">
+            <input type="button" value="Again (1 Day)" id="mySrsAgainBtn" style="background-color:#ffcccc; cursor:pointer;">
+            <input type="button" value="Hard (3 Days)" id="mySrsHardBtn" style="background-color:#ffeecc; cursor:pointer;">
+            <input type="button" value="Good (7 Days)" id="mySrsGoodBtn" style="background-color:#ccffcc; cursor:pointer;">
+        </div>
+
+        <h2 style="font-size:1.15rem; margin-top: 0;">Review Timeline</h2>
+        <div id="myVisTimeline"></div>
+    </div>
+</body>
+</html>
