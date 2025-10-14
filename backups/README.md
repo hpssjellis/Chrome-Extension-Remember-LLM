@@ -9,3 +9,7 @@ move the files to the main part of the repository. quck and easy and allows goin
 
 1. summarize15 the original testing extension
 1. extension-remember04 still not working
+
+
+summarizer17 starting to work
+
