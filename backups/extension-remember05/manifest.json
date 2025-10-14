@@ -1,34 +1,36 @@
 {
   "manifest_version": 3,
-  "name": "Content Extractor",
-  "version": "1.0",
+  "name": "Content Extractor-v1.0.5",
+  "version": "1.0.5",
   "description": "Extracts page content and summarizes it, with a Vis.js timeline.",
 
   "permissions": [
     "activeTab",
     "scripting",
-    "languageModel" 
+    "sidePanel"  // Required for the Side Panel API
   ],
 
   "host_permissions": [
     "<all_urls>"
   ],
 
-  "action": {
-    "default_popup": "popup.html",
+  "side_panel": { // Defines the Side Panel and its content
+    "default_path": "sidepanel.html" // Changed from 'sidepanel.html' for consistency
+  },
+
+  "action": { // Defines the toolbar icon
     "default_icon": {
-      "16": "images/icon16.png",
-      "32": "images/icon32.png",
-      "48": "images/icon48.png",
-      "128": "images/icon128.png"
+      "16": "images/icon16.png", // Corrected path
+      "48": "images/icon48.png", // Corrected path
+      "128": "images/icon128.png" // Corrected path
     }
+    // "default_popup" is correctly removed to allow the Side Panel to function
   },
 
   "icons": {
-    "16": "images/icon16.png",
-    "32": "images/icon32.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "16": "images/icon16.png", // Corrected path
+    "48": "images/icon48.png", // Corrected path
+    "128": "images/icon128.png" // Corrected path
   },
 
   "content_security_policy": {
