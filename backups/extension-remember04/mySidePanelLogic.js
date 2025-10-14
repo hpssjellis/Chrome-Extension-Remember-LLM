@@ -1,9 +1,10 @@
+// mySidePanelLogic.js
+
 // --- Global Variables & UI References (myCamelCase) ---
 const myContainer = document.getElementById('myTimeline');
 const myTooltip = document.getElementById('myCustomTooltip');
 const myStatus = document.getElementById('myStatus');
 const myOutput = document.getElementById('myOutput');
-const myProcessImportButton = document.getElementById('myProcessImportButton');
 const myQuestionSelectBox = document.getElementById('myQuestionSelectBox');
 const myMinimumOneDayCheckbox = document.getElementById('myMinimumOneDayCheckbox');
 const myFactorDisplay = document.getElementById('myFactorDisplay');
@@ -20,6 +21,21 @@ const myHintInput = document.getElementById('myHintInput');
 const myStoredStatementInput = document.getElementById('myStoredStatement');
 const myUserTestInput = document.getElementById('myUserTestInput');
 const myPresentNumberInput = document.getElementById('myPresentNumber');
+
+// --- New UI References for Event Handling ---
+const myTabButtonSummarize = document.getElementById('myTabButtonSummarize');
+const myTabButtonRemember = document.getElementById('myTabButtonRemember');
+const myProcessImportDataButton = document.getElementById('myProcessImportButton');
+const mySummarizeAllButton = document.getElementById('mySummarizeAllButton');
+const mySummarizeSelectionButton = document.getElementById('mySummarizeSelectionButton');
+const myGenerateLLMAnswerButton = document.getElementById('myGenerateLLMAnswerButton');
+const myAddEntryButton = document.getElementById('myAddEntryButton');
+const myAutofillNextButton = document.getElementById('myAutofillNextButton');
+const myDeleteEntryButton = document.getElementById('myDeleteEntryButton');
+const myExportJsonButton = document.getElementById('myExportJsonButton');
+const myExportCsvButton = document.getElementById('myExportCsvButton');
+const myPrepareImportButton = document.getElementById('myPrepareImportButton');
+const myClearAllDataButton = document.getElementById('myClearAllDataButton');
 
 
 // --- LLM & SRS State ---
@@ -95,8 +111,13 @@ function myLoadFromLocalStorage() {
     
     if (myStoredSettings) {
       const settings = JSON.parse(myStoredSettings);
-      myMinimumOneDayCheckbox.checked = settings.minimumOneDay !== false;
+      // Removed the conditional in case the checkbox is not yet loaded
       myGenerationPromptInput.value = settings.generationPrompt || myGenerationPromptInput.value;
+      
+      // Attempt to set checkbox state if it exists
+      if (myMinimumOneDayCheckbox) {
+          myMinimumOneDayCheckbox.checked = settings.minimumOneDay !== false;
+      }
     }
 
     if (myStoredData) {
@@ -119,7 +140,7 @@ function mySaveToLocalStorage() {
     localStorage.setItem('mySRSFactors', JSON.stringify({ easeFactor: myEaseFactor.value }));
     // Save settings including the new prompt
     const mySettings = { 
-        minimumOneDay: myMinimumOneDayCheckbox.checked,
+        minimumOneDay: myMinimumOneDayCheckbox ? myMinimumOneDayCheckbox.checked : true, // Default to true if checkbox isn't ready
         generationPrompt: myGenerationPromptInput.value
     };
     localStorage.setItem('mySRSSettings', JSON.stringify(mySettings));
@@ -130,6 +151,39 @@ function mySaveToLocalStorage() {
   }
 }
 
+// Helper function to handle Add/Update logic
+function myHandleAddUpdate() {
+    myAddEntry(); 
+    myPopulateSelectBox(); 
+    mySaveToLocalStorage();
+}
+
+// Helper function to handle Next Entry logic
+function myHandleNextEntry() {
+    myAutofillNextEntry();
+}
+
+// Helper function to handle Delete logic
+function myHandleDeleteEntry() {
+    myDeleteEntry();
+}
+
+// Helper function for tab switching
+function myHandleSwitchTab(myTabName) {
+    mySwitchTab(myTabName);
+}
+
+// Helper function for summarize all
+function myHandleSummarizeAll() {
+    mySummarizePage(myGetPageText);
+}
+
+// Helper function for summarize selection
+function myHandleSummarizeSelection() {
+    mySummarizePage(myGetSelectedText);
+}
+
+
 async function myInitializeApp() {
   // 1. Load Data
   const myInitialData = myLoadFromLocalStorage();
@@ -137,7 +191,7 @@ async function myInitializeApp() {
   // 2. Initialize Vis.js Timeline
   if (typeof vis === 'undefined' || !vis.DataSet || !vis.Timeline) {
       myStatus.textContent = "Error: Vis.js library not loaded. Timeline functionality disabled.";
-      console.error("Vis.js is required for timeline display.");
+      console.error("Vis.js is required for timeline display. Ensure you have the local files.");
       return;
   }
 
@@ -148,7 +202,13 @@ async function myInitializeApp() {
     autoResize: true,
   });
 
-  // 3. Attach Timeline Event Handlers (using direct timeline APIs)
+  // 3. Attach CSP-Compliant Event Listeners
+  
+  // Tab Switching
+  myTabButtonSummarize.addEventListener('click', () => myHandleSwitchTab('summarize'));
+  myTabButtonRemember.addEventListener('click', () => myHandleSwitchTab('remember'));
+
+  // Timeline Events
   myTimeline.on('itemover', myTimelineItemOver);
   myTimeline.on('itemout', myTimelineItemOut);
   myTimeline.on('doubleClick', myTimelineDoubleClick);
@@ -157,7 +217,30 @@ async function myInitializeApp() {
         myLoadItemForEdit(properties.item);
     }
   });
+
+  // Summarize Tab
+  mySummarizeAllButton.addEventListener('click', myHandleSummarizeAll);
+  mySummarizeSelectionButton.addEventListener('click', myHandleSummarizeSelection);
+
+  // Remember Tab (CRUD & Generation)
+  myGenerateLLMAnswerButton.addEventListener('click', myGenerateLongDescription);
+  myAddEntryButton.addEventListener('click', myHandleAddUpdate);
+  myAutofillNextButton.addEventListener('click', myHandleNextEntry);
+  myDeleteEntryButton.addEventListener('click', myHandleDeleteEntry);
+
+  // Testing Area
+  myMinimumOneDayCheckbox.addEventListener('change', mySaveToLocalStorage);
+  myQuestionSelectBox.addEventListener('change', (e) => myLoadQuestion(e.target.value));
+  myCheckButton.addEventListener('click', myCheckSimilarity);
   
+  // Data Management
+  myGenerationPromptInput.addEventListener('change', mySaveToLocalStorage);
+  myExportJsonButton.addEventListener('click', myExportJsonAll);
+  myExportCsvButton.addEventListener('click', myExportCsv);
+  myPrepareImportButton.addEventListener('click', myPrepareImport);
+  myProcessImportDataButton.addEventListener('click', myProcessImportData);
+  myClearAllDataButton.addEventListener('click', myClearAllLocalData);
+
   // 4. Final Setup
   myUpdateFactorDisplay();
   myAutofillNextEntry();
@@ -302,7 +385,6 @@ function myAddEntry() {
     });
     myStatus.textContent = `New Item ${myId} added!`;
   }
-  myAutofillNextEntry();
 }
 
 function myDeleteEntry() {
@@ -376,7 +458,7 @@ function myPrepareImport() {
   myOutput.readOnly = false;
   myOutput.style.backgroundColor = '#fff';
   myOutput.value = "Paste JSON data here and click 'Process Imported Data'. JSON is preferred for a reliable import.";
-  myProcessImportButton.style.display = 'block';
+  myProcessImportDataButton.style.display = 'block';
   myStatus.textContent = "Ready to import data. Please paste content below.";
 }
 
@@ -410,7 +492,7 @@ function myProcessImportData() {
 
     myOutput.readOnly = true;
     myOutput.style.backgroundColor = '#eee';
-    myProcessImportButton.style.display = 'none';
+    myProcessImportDataButton.style.display = 'none';
 }
 
 
@@ -431,7 +513,7 @@ function myGetSelectedText() {
 // Core AI summarization function (uses a static JSON schema)
 async function mySummarizeWithPrompt(myText) {
   if (!('LanguageModel' in window)) {
-    return 'Error: The Chrome LanguageModel API is not supported in this browser or is not enabled.';
+    return 'Error: The Chrome LanguageModel API is not supported in this browser or is not enabled. Check chrome://flags.';
   }
 
   const mySummarySchema = {
@@ -467,7 +549,7 @@ async function mySummarizeWithPrompt(myText) {
     return mySummaryJsonString;
   } catch (myError) {
     console.error('Error using LanguageModel API for summary:', myError);
-    return `Error: ${myError.message}. Failed to generate summary.`;
+    return `Error: ${myError.message}. Failed to generate summary. (Is the model downloaded? Check chrome://components)`;
   }
 }
 
@@ -642,7 +724,7 @@ async function myCheckSimilarity() {
   const myUserValue = myUserTestInput.value.trim();
 
   if (!myStoredValue || !myUserValue || !('LanguageModel' in window)) {
-    myStopTimer(myStoredValue && myUserValue ? "Error: LanguageModel API not available." : 'Please fill in Your Recall/Answer.');
+    myStopTimer(myStoredValue && myUserValue ? "Error: LanguageModel API not available. Check chrome://flags." : 'Please fill in Your Recall/Answer.');
     return;
   }
   
@@ -686,20 +768,19 @@ async function myCheckSimilarity() {
 
 async function myGenerateLongDescription() {
   const myContent = myEntryContentInput.value.trim();
-  const myGenerateButton = document.querySelector('button[onclick="myGenerateLongDescription()"]');
-
+  
   if (!myContent) {
     myStopTimer('Please enter a concept or term in the "Hint" field first.', myGenerationStatus);
     return;
   }
   if (!('LanguageModel' in window)) {
-    myStopTimer("Error: LanguageModel API not available.", myGenerationStatus);
+    myStopTimer("Error: LanguageModel API not available. Check chrome://flags.", myGenerationStatus);
     return;
   }
 
-  myGenerateButton.disabled = true;
-  myGenerateButton.textContent = 'Generating...';
-  myGenerateButton.style.backgroundColor = '#ccc';
+  myGenerateLLMAnswerButton.disabled = true;
+  myGenerateLLMAnswerButton.textContent = 'Generating...';
+  myGenerateLLMAnswerButton.style.backgroundColor = '#ccc';
   myEntryLongDescriptionInput.value = 'Generating...';
 
   try {
@@ -707,8 +788,8 @@ async function myGenerateLongDescription() {
     
     // Create session using the user-defined prompt
     const mySessionOptions = {
-        systemInstruction: myGenerationPromptInput.value,
-        outputLanguage: 'en'
+      systemInstruction: myGenerationPromptInput.value,
+      outputLanguage: 'en'
     };
     const myLanguageModelSessionForGeneration = await LanguageModel.create(mySessionOptions);
 
@@ -727,11 +808,13 @@ async function myGenerateLongDescription() {
     console.error("Content Generation Error:", myError);
     myEntryLongDescriptionInput.value = "Failed to generate content.";
   } finally {
-    myGenerateButton.disabled = false;
-    myGenerateButton.textContent = 'Generate Answer (LLM)';
-    myGenerateButton.style.backgroundColor = '#007bff';
+    myGenerateLLMAnswerButton.disabled = false;
+    myGenerateLLMAnswerButton.textContent = 'Generate Answer (LLM)';
+    myGenerateLLMAnswerButton.style.backgroundColor = '#007bff';
   }
 }
 
-// Note: The manifest.json and myServiceWorker.js from the previous step are still required 
-// to complete the extension, but their content hasn't changed.
+// =========================================================================
+// 🟢 SECURE INITIALIZATION CALL (Replaces HTML 'onload') 🟢
+// =========================================================================
+document.addEventListener('DOMContentLoaded', myInitializeApp);

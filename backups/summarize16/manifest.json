@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Study Assistant v1-4-2",
-  "version": "1.04.2",
-  "description": "Uses Chrome's built-in AI for structured web summarization and spaced repetition memory testing.",
+  "name": "Content Extractor Side Panel v1.16.2",
+  "version": "1.16.2",
+  "description": "Extracts all or selected content from the active page into a side panel.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -17,10 +17,10 @@
     "128": "images/icon128.png"
   },
   "background": {
-    "service_worker": "myServiceWorker.js"
+    "service_worker": "service_worker.js"
   },
   "side_panel": {
-    "default_path": "mySidePanel.html"
+    "default_path": "sidepanel.html"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'" 

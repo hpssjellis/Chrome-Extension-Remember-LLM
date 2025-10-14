@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Extractor</title>
+    
+    <script src="mySidePanelLogic.js" type="module"></script> 
+
+    
+    <script src="./vis-timeline.min.js"></script> 
+    <link
+        href="./vis-timeline.min.css" 
+        rel="stylesheet"
+        type="text/css"
+    />
+    
+    <style>
+        body {
+            /* Keep existing styles */
+            margin: 0; 
+            padding: 16px; 
+            min-height: 100vh; 
+            display: flex; 
+            flex-direction: column;
+        }
+        
+        /* New minimal style for the timeline container */
+        #myVisTimeline {
+            width: 100%;
+            height: 300px; /* Give it some vertical space */
+            border: 1px solid #ccc;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body> 
+    <div class="container" style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px;">
+        <h1 style="font-size: 1.25rem;">Page Content Extractor</h1>
+
+        <div class="button-group" style="display: flex; gap: 8px;">
+            <button id="showAllBtn" style="flex: 1;">
+                Show All Text
+            </button>
+            <button id="showSelectedBtn" style="flex: 1;">
+                Show Selection
+            </button>
+        </div>
+
+        <div id="statusMessage"></div>
+
+        <textarea id="contentArea" readonly placeholder="Content will appear here..." style="flex-grow: 1; width: 100%; padding: 8px; resize: none;"></textarea>
+
+        <div id="myVisTimeline"></div>
+
+    </div>
+</body>
+</html>
