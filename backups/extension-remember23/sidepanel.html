@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRS Flashcard Generator</title>
+
+    <link rel="stylesheet" type="text/css" href="vis-timeline.min.css">
+    <script src="vis-timeline.min.js"></script>
+    <script type="module" src="mySidePanel.js"></script>
+
+    <style>
+        /* Minimal CSS kept for layout structure */
+        body {
+            /* Enable scrolling if content exceeds panel height */
+            margin: 0;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: sans-serif;
+            background-color: #f7f7f7;
+            /* Make body scrollable */
+            overflow-y: auto;
+        }
+        
+        h1, h2 { margin: 0; color: #333; }
+        h1 { font-size: 1.5rem; }
+        h2 { font-size: 1.15rem; }
+
+        #myVisTimeline {
+            width: 100%;
+            /* Increased height from 300px to 450px for more vertical room for stacking */
+            height: 450px;
+            border: 1px solid #ccc;
+            margin-top: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            /* Ensure timeline itself can scroll its content */
+            overflow: hidden;
+        }
+
+        .container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 250px; /* Base for side panel */
+            max-width: 100%;
+        }
+
+        .my-button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="button"],
+        .import-label,
+        #myContentArea,
+        #myResponseArea,
+        #myEditContent,
+        #myEditDescription,
+        #myEditDate,
+        #myConceptCountInput { /* ADDED #myConceptCountInput HERE */
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            padding: 10px;
+            cursor: pointer;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        
+        .my-button-group input[type="button"] {
+            flex: 1;
+            padding: 8px 10px;
+            background-color: #10b981;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: white;
+            font-weight: bold;
+            border-color: #059669;
+        }
+        .my-button-group input[type="button"]:hover:not(:disabled) {
+            background-color: #eee;
+            color: black;
+        }
+        
+        /* Specific styling for the custom import labels */
+        .import-label {
+            flex: 1;
+            text-align: center;
+            padding: 8px 10px;
+            background-color: #eff6ff;
+            border-color: #93c5fd;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .import-label:hover {
+            background-color: #dbeafe;
+        }
+
+        #myContentArea, #myResponseArea,
+        #myEditContent, #myEditDescription {
+            flex-grow: 1;
+            width: 100%;
+            resize: vertical;
+            min-height: 50px;
+            background-color: white;
+        }
+        
+        #myGenerateTimelineBtn {
+            background-color: #10b981;
+            color: white;
+            font-weight: bold;
+            border-color: #059669;
+            display: none;
+        }
+        #myGenerateTimelineBtn:hover:not(:disabled) {
+            background-color: #059669;
+            display: none;
+        }
+        
+        #myStatusMessage {
+            font-weight: 500;
+            color: #1d4ed8;
+        }
+        
+        #myLLMFeedback {
+            padding: 8px;
+            border: 1px dashed #ccc;
+            min-height: 20px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: background-color 0.5s;
+        }
+
+        /* SRS Buttons */
+        #mySrsAgainBtn { background-color:#fee2e2; border-color: #fca5a5; }
+        #mySrsHardBtn { background-color:#ffedd5; border-color: #fdb96f; }
+        #mySrsGoodBtn { background-color:#d1fae5; border-color: #6ee7b7; }
+        
+        /* Data Management Buttons */
+        #myDeleteBtn { background-color: #fee2e2; border-color: #fca5a5; }
+        #myExportBtn { background-color: #bfdbfe; border-color: #93c5fd; }
+        
+        input[type="button"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Edit Panel Styling */
+        #myEditPanel {
+            border: 2px solid #f97316;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #fff7ed;
+            margin-top: 12px;
+            display: none;
+            gap: 8px;
+            flex-direction: column;
+        }
+        #myEditPanel h3 { margin-top: 0; font-size: 1rem; color: #f97316; }
+        #myEditPanel label { font-weight: bold; margin-top: 4px; }
+        #myEditPanel .my-button-group { margin-top: 8px; }
+        #mySaveEditBtn { background-color: #f97316; color: white; border-color: #ea580c; }
+        #myCancelEditBtn { background-color: #fff; border-color: #ddd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="font-size:1.25rem;">SRS Flashcard Generator</h1>
+
+        <div class="my-button-group">
+            <input type="button" value="1. Extract Page Content" id="myShowAllBtn">
+            <input type="button" value="1. Extract Selection" id="myShowSelectedBtn">
+        </div>
+        
+        <div style="display:flex; align-items:center; gap: 8px; justify-content: space-between;">
+            <label for="myConceptCountInput" style="font-weight: normal; font-size: 0.9rem;">Concepts to extract (e.g., 3-5):</label>
+            <input type="text" id="myConceptCountInput" value="3 and 5" style="width: 80px; padding: 4px; text-align: center; border: 1px dashed #ccc; background-color: #fff; border-radius: 6px;">
+        </div>
+        <input type="button" value="2. Summarize & Add to Timeline (AI & Save) 🧠" id="myGenerateTimelineBtn">
+
+        <div id="myStatusMessage" style="color:blue;">AI Initializing...</div>
+
+        <textarea id="myContentArea" readonly placeholder="Content must be extracted first (Step 1) or loaded from the timeline."></textarea>
+
+        <label for="myResponseArea" style="font-weight:bold;">Your Recall (Answer):</label>
+        <textarea id="myResponseArea" placeholder="Type your recalled content here..."></textarea>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="display:flex; align-items:center; gap: 4px;">
+                    <input type="checkbox" id="myMinOneDayCheckbox" checked>
+                    Min 1 Day
+                </label>
+                <input type="button" class="my-button-group" value="LLM Similarity Check" id="myLLMCheckBtn"">
+            </div>
+
+            <div id="myLLMFeedback">
+                LLM Similarity: N/A
+            </div>
+        </div>
+
+        <div class="my-button-group" id="mySrsButtonGroup" style="display: none;">
+            <input type="button" value="Again (1 Day)" id="mySrsAgainBtn">
+            <input type="button" value="Hard (3 Days)" id="mySrsHardBtn">
+            <input type="button" value="Good (7 Days)" id="mySrsGoodBtn">
+        </div>
+
+        <h2 style="font-size:1.15rem; margin-top: 4px;">Data Management</h2>
+        
+        <div style="display:flex; align-items:center; gap: 8px; font-size: 0.8rem; margin-bottom: -8px;">
+            <label for="myMaxIdInput" style="font-weight: normal;">Max Timeline ID (Next Available):</label>
+            <input type="number" id="myMaxIdInput" value="1" readonly style="width: 60px; padding: 4px; text-align: right; border: 1px dashed #ccc; background-color: #f0f0f0;">
+        </div>
+        
+        <div class="my-button-group" style="gap: 8px;">
+            <input type="button" value="Delete Selected Item" id="myDeleteBtn" style="flex: 1.5;">
+            <input type="button" value="Export Data (JSON)" id="myExportBtn" style="flex: 1;">
+        </div>
+        
+        <div class="my-button-group" style="gap: 8px;">
+            <label for="myImportInput" class="import-label" id="myImportReplaceLabel">
+                Import/REPLACE
+            </label>
+            <label for="myImportInput" class="import-label" id="myImportAppendLabel">
+                Import/APPEND
+            </label>
+            <input type="file" id="myImportInput" style="display: none;" accept="application/json">
+        </div>
+        
+        <div id="myEditPanel">
+            <h3>📝 Edit Flashcard</h3>
+            <label for="myEditContent">Question/Hint (Timeline Content):</label>
+            <textarea id="myEditContent" rows="1"></textarea>
+            
+            <label for="myEditDescription">Answer/Description (Long Description):</label>
+            <textarea id="myEditDescription" rows="3"></textarea>
+            
+            <label for="myEditDate">Next Review Date/Time:</label>
+            <input type="datetime-local" id="myEditDate">
+
+            <div class="my-button-group">
+                <input type="button" value="Save Changes & Reschedule" id="mySaveEditBtn">
+                <input type="button" value="Cancel Edit" id="myCancelEditBtn">
+            </div>
+        </div>
+        
+        <h2 style="font-size:1.15rem; margin-top: 4px;">Review Timeline</h2>
+        <div id="myVisTimeline"></div>
+    </div>
+    <br><br><br>
+</body>
+</html>
