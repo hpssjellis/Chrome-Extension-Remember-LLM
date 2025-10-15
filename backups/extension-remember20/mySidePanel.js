@@ -10,6 +10,7 @@ const myShowSelectedButton = document.getElementById('myShowSelectedBtn');
 const myGenerateTimelineBtn = document.getElementById('myGenerateTimelineBtn');
 const myLLMCheckBtn = document.getElementById('myLLMCheckBtn');
 const myLLMFeedback = document.getElementById('myLLMFeedback');
+// These are now hidden, but references are kept if automation is disabled later
 const mySrsAgainBtn = document.getElementById('mySrsAgainBtn');
 const mySrsHardBtn = document.getElementById('mySrsHardBtn');
 const mySrsGoodBtn = document.getElementById('mySrsGoodBtn');
@@ -37,6 +38,7 @@ let myTimeline; // Vis.js Timeline instance
 let myTimerInterval;
 let mySeconds = 0;
 let myEditingItemId = null; // ID of the item currently loaded in the edit panel
+let myLastSimilarityScore = 0.0; // Stores the last calculated similarity score
 
 // SRS constants
 const mySRSFactors = {
@@ -246,6 +248,7 @@ function myImportData(event, myReplaceExisting) {
 
 // =========================================================================
 // --- CONTENT RETRIEVAL FUNCTIONS (Injected into Content Script) ---
+// --- THESE WERE MISSING IN THE PREVIOUS VERSION, CAUSING THE BUG ---
 // =========================================================================
 
 function myGetPageText() {
@@ -282,17 +285,21 @@ async function myInitializeLanguageModel() {
     }
 }
 
+/**
+ * Checks similarity and, upon success, triggers the automated review.
+ */
 async function myCheckSimilarity() {
-    if (!myLanguageModelSession) {
-        myLLMFeedback.textContent = "Error: AI not ready.";
-        return;
-    }
-
     const mySelectedItems = myTimeline.getSelection();
     if (mySelectedItems.length === 0) {
         myLLMFeedback.textContent = "Please select an item on the timeline to load its hint.";
         return;
     }
+    
+    if (!myLanguageModelSession) {
+        myLLMFeedback.textContent = "Error: AI not ready.";
+        return;
+    }
+
     const myItem = myItemsDataSet.get(mySelectedItems[0]);
     if (!myItem || !myItem.longDescription) {
         myLLMFeedback.textContent = "Selected item has no answer to check against.";
@@ -309,6 +316,7 @@ async function myCheckSimilarity() {
 
     myStartTimer(myLLMFeedback);
     myLLMCheckBtn.disabled = true;
+    myLastSimilarityScore = 0.0; // Reset score
 
     try {
         const myPrompt = `
@@ -331,8 +339,12 @@ async function myCheckSimilarity() {
             myStopTimer(`Similarity Check Complete. Score: ${mySimilarityScore.toFixed(2)}`, myLLMFeedback);
         }
 
+        myLastSimilarityScore = mySimilarityScore;
         myLLMFeedback.style.backgroundColor = `rgba(0, 255, 0, ${mySimilarityScore * 0.7})`;
-        myLLMFeedback.textContent = `LLM Similarity Score: ${mySimilarityScore.toFixed(2)}`;
+        myLLMFeedback.textContent = `LLM Similarity Score: ${mySimilarityScore.toFixed(2)} — Automating Review...`;
+        
+        // --- AUTOMATION STEP 1: Determine Quality and Update SRS ---
+        myAutomateReview(myItem, mySimilarityScore);
 
     } catch (myError) {
         console.error("LLM Prompt Error:", myError);
@@ -408,6 +420,57 @@ async function myGenerateTimelineItemJson(myText) {
 // --- SRS LOGIC ---
 // =========================================================================
 
+/**
+ * Determines the SRS quality (1, 2, or 3) based on LLM similarity and review interval.
+ * @param {object} myItem The timeline item being reviewed.
+ * @param {number} mySimilarityScore The LLM's conceptual match score (0.0 to 1.0).
+ */
+function myAutomateReview(myItem, mySimilarityScore) {
+    let myQuality = 1; // Default to Again (1)
+
+    // Calculate time over/underdue in days (1.0 = exactly due)
+    const myReviewDate = new Date(myItem.start).getTime();
+    const myOriginalStart = new Date(myItem.myOriginalStart).getTime();
+    const myIntervalDuration = myReviewDate - myOriginalStart;
+    const myTimeElapsed = Date.now() - myReviewDate; // Time since the scheduled review
+    
+    // For the very first review (myCorrectCount === 0), myTimeElapsed might be negative, so we use 0.
+    const myIntervalRatio = myIntervalDuration > 0 ? (myTimeElapsed + myIntervalDuration) / myIntervalDuration : 1.0; 
+    
+    // --- Automated Quality Assignment Algorithm ---
+    
+    if (mySimilarityScore >= 0.85) {
+        // High confidence match (0.85+)
+        if (myIntervalRatio >= 0.8 && myIntervalRatio <= 1.5) { 
+            // Correct and done near the scheduled time (80% to 150% of interval)
+            myQuality = 3; // Good
+        } else if (myIntervalRatio > 1.5) {
+             // Correct but late (>150% of interval) - Good but indicates too easy/long interval
+             myQuality = 3; // Good
+        } else {
+             // Correct but early (<=80% of interval) - Hard, as it was recalled faster than expected
+             myQuality = 2; // Hard
+        }
+    } else if (mySimilarityScore >= 0.5) {
+        // Medium confidence match (0.5 to 0.85)
+        myQuality = 2; // Hard
+    } else {
+        // Low confidence match (< 0.5)
+        myQuality = 1; // Again
+    }
+    
+    // The actual update
+    myUpdateSRS(myQuality, myItem.id);
+
+    // Provide detailed feedback
+    let myQualityMessage;
+    if (myQuality === 1) myQualityMessage = "AGAIN (1)";
+    else if (myQuality === 2) myQualityMessage = "HARD (2)";
+    else myQualityMessage = "GOOD (3)";
+    
+    myLLMFeedback.textContent = `LLM Score: ${mySimilarityScore.toFixed(2)}. Automated Review: ${myQualityMessage}.`;
+}
+
 function myCalculateNextReview(myItem, myQuality) {
     let myEF = mySRSFactors.myEaseFactor;
     let myN = myItem.myCorrectCount;
@@ -431,6 +494,7 @@ function myCalculateNextReview(myItem, myQuality) {
     } else if (myN === 2) {
         myIntervalDays = 3;
     } else {
+        // For the first review (N=0, but only for quality=1), myCurrentIntervalDays will be based on time since original start.
         myIntervalDays = Math.round(mySRSFactors.myCurrentIntervalDays * myEF);
     }
 
@@ -447,27 +511,29 @@ function myCalculateNextReview(myItem, myQuality) {
     return { myNextReviewDate, myNewCorrectCount: myN };
 }
 
-function myUpdateSRS(myQuality) {
-    const mySelectedItems = myTimeline.getSelection();
-    if (mySelectedItems.length === 0) {
-        myStatusMessage.textContent = "Please click an item on the timeline to select it for review.";
-        return;
-    }
-
-    const myItemId = mySelectedItems[0];
+/**
+ * Updates the SRS status of the selected item and then selects the next due item.
+ * @param {number} myQuality The quality of the review (1=Again, 2=Hard, 3=Good).
+ * @param {number} myItemId The ID of the item to update (passed from automation).
+ */
+function myUpdateSRS(myQuality, myItemId) {
+    
     const myItem = myItemsDataSet.get(myItemId);
 
     if (!myItem) return;
-
-    // Do not allow SRS update if the edit panel is open for this item
-    if (myEditingItemId === myItemId) {
-        myStatusMessage.textContent = "Please save or cancel the current edit before updating SRS.";
-        return;
+    
+    // Calculate current interval
+    const myLastReviewMillis = new Date(myItem.start).getTime();
+    const myIntervalMillis = Date.now() - new Date(myItem.myOriginalStart).getTime(); // Time since item creation for first review
+    
+    if (myItem.myCorrectCount > 0) {
+        // For subsequent reviews, use time since last review (which is stored in myItem.start)
+        mySRSFactors.myCurrentIntervalDays = Math.round((Date.now() - myLastReviewMillis) / ONE_DAY_MS) || 1;
+    } else {
+        // For first review (if it's the first time being marked good/hard), use interval since creation
+        mySRSFactors.myCurrentIntervalDays = Math.round(myIntervalMillis / ONE_DAY_MS) || 1;
     }
 
-    const myLastReviewMillis = new Date(myItem.start).getTime();
-    const myIntervalMillis = Date.now() - myLastReviewMillis;
-    mySRSFactors.myCurrentIntervalDays = Math.round(myIntervalMillis / ONE_DAY_MS) || 1;
 
     const { myNextReviewDate, myNewCorrectCount } = myCalculateNextReview(myItem, myQuality);
 
@@ -484,8 +550,38 @@ function myUpdateSRS(myQuality) {
     myResponseArea.value = '';
     myContentArea.value = '';
     myTimeline.setSelection([]);
-    myLLMFeedback.textContent = "LLM Similarity: N/A";
-    myLLMFeedback.style.backgroundColor = 'transparent';
+    
+    // --- AUTOMATION STEP 2: Load the next item ---
+    myAutoSelectNextItem();
+}
+
+/**
+ * Finds the next item that is currently due (start date <= now) and loads it for review.
+ */
+function myAutoSelectNextItem() {
+    const myNowMillis = Date.now();
+    let myNextItem = null;
+    let myEarliestDueTime = Infinity;
+
+    myItemsDataSet.forEach((item) => {
+        const itemStartTime = new Date(item.start).getTime();
+        
+        // Find the earliest item whose review date is NOW or in the PAST
+        if (itemStartTime <= myNowMillis && itemStartTime < myEarliestDueTime) {
+            myEarliestDueTime = itemStartTime;
+            myNextItem = item;
+        }
+    });
+
+    if (myNextItem) {
+        myTimeline.setSelection([myNextItem.id]);
+        myLoadItemForReview(myNextItem.id);
+        myTimeline.focus(myNextItem.id, { animation: true, zoom: true });
+    } else {
+        myStatusMessage.textContent = `No items currently due for review. Current EF: ${mySRSFactors.myEaseFactor.toFixed(2)}`;
+        myLLMFeedback.textContent = "LLM Similarity: N/A";
+        myLLMFeedback.style.backgroundColor = 'transparent';
+    }
 }
 
 function myDeleteSelectedItem() {
@@ -540,6 +636,7 @@ async function myExtractContent(myExtractionFunc) {
 
         const myResults = await chrome.scripting.executeScript({
             target: { tabId: myTab.id },
+            // Pass the function reference directly
             func: myExtractionFunc
         });
 
@@ -618,7 +715,7 @@ async function myGenerateTimelineItem() {
 
         if (myNewIds.length > 0) {
             myTimeline.setSelection([myNewIds[myNewIds.length - 1]]);
-            // Removed: myTimeline.focus(myNewIds); This prevents the unwanted deep zoom on generation.
+            // We removed myTimeline.focus() to prevent unwanted deep zoom.
         }
 
         myStatusMessage.textContent = `SUCCESS. ${mySummaryArray.length} cards generated and added to timeline.`;
@@ -640,7 +737,33 @@ function myLoadItemForReview(myItemId) {
 
     const myItem = myItemsDataSet.get(myItemId);
     if (myItem) {
-        // Content area shows the QUESTION (the short hint)
+        const myReviewDate = new Date(myItem.start);
+        const myNow = new Date();
+        
+        if (myReviewDate.getTime() > myNow.getTime()) {
+            const myDiffMs = myReviewDate.getTime() - myNow.getTime();
+            const myDiffHours = Math.floor(myDiffMs / (1000 * 60 * 60));
+            const myDiffMinutes = Math.round((myDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let myWaitMessage = "";
+            if (myDiffHours > 0) {
+                myWaitMessage += `${myDiffHours} hour${myDiffHours !== 1 ? 's' : ''}`;
+            }
+            if (myDiffMinutes > 0 || myDiffHours === 0) {
+                if (myDiffHours > 0) myWaitMessage += " and ";
+                myWaitMessage += `${myDiffMinutes} minute${myDiffMinutes !== 1 ? 's' : ''}`;
+            }
+
+            myContentArea.value = `This item is not due yet. Please wait ${myWaitMessage} (until ${myReviewDate.toLocaleTimeString()}) to review.`;
+            myResponseArea.value = '';
+            myLLMFeedback.textContent = "LLM Similarity: N/A";
+            myLLMFeedback.style.backgroundColor = 'transparent';
+            myStatusMessage.textContent = `Item due in the future: ${myItem.content}`;
+            myTimeline.setSelection([]); // Deselect the item as it can't be reviewed
+            return;
+        }
+
+        // Item is due: Load for review
         myContentArea.value = myItem.content || '';
         myResponseArea.value = '';
         myLLMFeedback.textContent = "LLM Similarity: Ready to check";
@@ -797,9 +920,9 @@ function myInitializeVisTimeline() {
         moveable: true,
         selectable: true,
         showCurrentTime: true,
-        // Crucial option for vertically stacked items to allow scrolling for visibility
+        // Crucial options for solving the stacking/date visibility issue:
         verticalScroll: true, 
-        stack: true, // This is what causes items with the same date/time to stack.
+        stack: true, 
         template: function (item) {
             const isOverdue = new Date(item.start).getTime() < Date.now();
             return `<div style="${isOverdue ? 'color: red; font-weight: bold;' : ''}">${item.content}</div>`;
@@ -845,10 +968,16 @@ async function myInitializeApp() {
         myGenerateTimelineBtn.onclick = myGenerateTimelineItem;
         myGenerateTimelineBtn.disabled = true;
     }
-    if (myLLMCheckBtn) { myLLMCheckBtn.onclick = myCheckSimilarity; }
-    if (mySrsAgainBtn) { mySrsAgainBtn.onclick = () => myUpdateSRS(1); }
-    if (mySrsHardBtn) { mySrsHardBtn.onclick = () => myUpdateSRS(2); }
-    if (mySrsGoodBtn) { mySrsGoodBtn.onclick = () => myUpdateSRS(3); }
+    if (myLLMCheckBtn) { 
+        myLLMCheckBtn.onclick = myCheckSimilarity; 
+    }
+    
+    // SRS Buttons (Again, Hard, Good) are disabled/hidden and the handlers removed as automation is now active.
+    // The previous manual handlers are commented out:
+    // if (mySrsAgainBtn) { mySrsAgainBtn.onclick = () => myUpdateSRS(1); }
+    // if (mySrsHardBtn) { mySrsHardBtn.onclick = () => myUpdateSRS(2); }
+    // if (mySrsGoodBtn) { mySrsGoodBtn.onclick = () => myUpdateSRS(3); }
+
     if (myDeleteBtn) { myDeleteBtn.onclick = myDeleteSelectedItem; }
     if (myExportBtn) { myExportBtn.onclick = myExportData; }
     
@@ -886,6 +1015,9 @@ async function myInitializeApp() {
     
     // Hide edit panel initially
     myEditPanel.style.display = 'none';
+    
+    // Initial call to load the first due item, if any
+    myAutoSelectNextItem();
 }
 
 document.addEventListener('DOMContentLoaded', myInitializeApp);
