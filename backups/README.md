@@ -18,3 +18,5 @@ best extension-remember22 still needs the max ID updating accurately on replace 
 
 Needs auto ask the oldest question.
 
+extension-remember23 minor bug with import replace, everything else seems fine.
+
