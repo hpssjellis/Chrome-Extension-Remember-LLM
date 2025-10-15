@@ -13,3 +13,8 @@ move the files to the main part of the repository. quck and easy and allows goin
 
 summarizer17 starting to work
 
+
+best extension-remember22 still needs the max ID updating accurately on replace and append. note perhaps the id's should always be updated when loading them, since the id's might be bad.
+
+Needs auto ask the oldest question.
+
