@@ -13,15 +13,15 @@
         /* Minimal CSS kept for layout structure */
         body {
             /* Enable scrolling if content exceeds panel height */
-            margin: 0; 
-            padding: 16px; 
-            min-height: 100vh; 
-            display: flex; 
+            margin: 0;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
             flex-direction: column;
             font-family: sans-serif;
             background-color: #f7f7f7;
             /* Make body scrollable */
-            overflow-y: auto; 
+            overflow-y: auto;
         }
         
         h1, h2 { margin: 0; color: #333; }
@@ -31,13 +31,13 @@
         #myVisTimeline {
             width: 100%;
             /* Increased height from 300px to 450px for more vertical room for stacking */
-            height: 450px; 
+            height: 450px;
             border: 1px solid #ccc;
             margin-top: 16px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             /* Ensure timeline itself can scroll its content */
-            overflow: hidden; 
+            overflow: hidden;
         }
 
         .container {
@@ -55,25 +55,26 @@
         }
 
         input[type="button"],
-        .import-label, 
-        #myContentArea, 
+        .import-label,
+        #myContentArea,
         #myResponseArea,
-        #myEditContent, 
-        #myEditDescription, 
-        #myEditDate {
+        #myEditContent,
+        #myEditDescription,
+        #myEditDate,
+        #myConceptCountInput { /* ADDED #myConceptCountInput HERE */
             border: 1px solid #ddd;
             border-radius: 6px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
             padding: 10px;
             cursor: pointer;
-            box-sizing: border-box; 
-            font-family: inherit; 
+            box-sizing: border-box;
+            font-family: inherit;
         }
         
         .my-button-group input[type="button"] {
             flex: 1;
             padding: 8px 10px;
-            background-color: #10b981; 
+            background-color: #10b981;
             cursor: pointer;
             transition: background-color 0.2s;
             color: white;
@@ -87,13 +88,13 @@
         
         /* Specific styling for the custom import labels */
         .import-label {
-            flex: 1; 
-            text-align: center; 
+            flex: 1;
+            text-align: center;
             padding: 8px 10px;
-            background-color: #eff6ff; 
+            background-color: #eff6ff;
             border-color: #93c5fd;
             transition: background-color 0.2s;
-            cursor: pointer; 
+            cursor: pointer;
         }
         .import-label:hover {
             background-color: #dbeafe;
@@ -104,12 +105,12 @@
             flex-grow: 1;
             width: 100%;
             resize: vertical;
-            min-height: 50px; 
+            min-height: 50px;
             background-color: white;
         }
         
         #myGenerateTimelineBtn {
-            background-color: #10b981; 
+            background-color: #10b981;
             color: white;
             font-weight: bold;
             border-color: #059669;
@@ -141,8 +142,8 @@
         #mySrsGoodBtn { background-color:#d1fae5; border-color: #6ee7b7; }
         
         /* Data Management Buttons */
-        #myDeleteBtn { background-color: #fee2e2; border-color: #fca5a5; } 
-        #myExportBtn { background-color: #bfdbfe; border-color: #93c5fd; } 
+        #myDeleteBtn { background-color: #fee2e2; border-color: #fca5a5; }
+        #myExportBtn { background-color: #bfdbfe; border-color: #93c5fd; }
         
         input[type="button"]:disabled {
             opacity: 0.6;
@@ -151,12 +152,12 @@
         
         /* Edit Panel Styling */
         #myEditPanel {
-            border: 2px solid #f97316; 
+            border: 2px solid #f97316;
             padding: 10px;
             border-radius: 8px;
             background-color: #fff7ed;
             margin-top: 12px;
-            display: none; 
+            display: none;
             gap: 8px;
             flex-direction: column;
         }
@@ -176,6 +177,10 @@
             <input type="button" value="1. Extract Selection" id="myShowSelectedBtn">
         </div>
         
+        <div style="display:flex; align-items:center; gap: 8px; justify-content: space-between;">
+            <label for="myConceptCountInput" style="font-weight: normal; font-size: 0.9rem;">Concepts to extract (e.g., 3-5):</label>
+            <input type="text" id="myConceptCountInput" value="3 and 5" style="width: 80px; padding: 4px; text-align: center; border: 1px dashed #ccc; background-color: #fff; border-radius: 6px;">
+        </div>
         <input type="button" value="2. Summarize & Add to Timeline (AI & Save) 🧠" id="myGenerateTimelineBtn">
 
         <div id="myStatusMessage" style="color:blue;">AI Initializing...</div>

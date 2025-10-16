@@ -21,6 +21,8 @@ const myImportInput = document.getElementById('myImportInput');
 const myImportReplaceLabel = document.getElementById('myImportReplaceLabel'); 
 const myImportAppendLabel = document.getElementById('myImportAppendLabel'); 
 const myMaxIdInput = document.getElementById('myMaxIdInput'); 
+// New Input for Concept Count
+const myConceptCountInput = document.getElementById('myConceptCountInput'); 
 
 // New Edit Panel Elements
 const myEditPanel = document.getElementById('myEditPanel'); 
@@ -248,7 +250,6 @@ function myImportData(event, myReplaceExisting) {
 
 // =========================================================================
 // --- CONTENT RETRIEVAL FUNCTIONS (Injected into Content Script) ---
-// --- THESE WERE MISSING IN THE PREVIOUS VERSION, CAUSING THE BUG ---
 // =========================================================================
 
 function myGetPageText() {
@@ -359,6 +360,9 @@ async function myGenerateTimelineItemJson(myText) {
     if (!myLanguageModelSession) {
         throw new Error("AI not ready for summarization.");
     }
+    
+    // Retrieve user-defined concept count range
+    const myConceptCount = myConceptCountInput ? myConceptCountInput.value.trim() : "3 and 5";
 
     try {
         const myCardSchema = {
@@ -384,7 +388,7 @@ async function myGenerateTimelineItemJson(myText) {
         };
 
         const myPrompt = `
-            Analyze the following text. Extract between **3 and 5 distinct, separate concepts** and generate a summary for each, suitable for a Spaced Repetition System (SRS) flashcard.
+            Analyze the following text. Extract between **${myConceptCount} distinct, separate concepts** and generate a summary for each, suitable for a Spaced Repetition System (SRS) flashcard.
 
             When summarizing, focus on providing **${myOptions.type.toUpperCase()}** that are **${myOptions.length.toUpperCase()}** in length.
             All generated content (hint and description) MUST be in **${myOptions.language.toUpperCase()}**.
@@ -647,7 +651,7 @@ async function myExtractContent(myExtractionFunc) {
             myContentArea.value = myExtractedText.trim();
             myStatusMessage.textContent = 'Step 1: Content extracted. Click "Summarize & Add to Timeline" to summarize and save multiple concepts.';
             myGenerateTimelineBtn.disabled = false;
-            myGenerateTimelineBtn.click()   // activate the timeline data extraction
+            myGenerateTimelineBtn.click()    // activate the timeline data extraction
         } else {
             myContentArea.value = '';
             myStatusMessage.textContent = myExtractionFunc === myGetPageText ?
@@ -990,7 +994,7 @@ async function myInitializeApp() {
     };
 
     if (myImportReplaceLabel) { 
-         myImportReplaceLabel.onclick = myImportInputHandler('replace'); 
+           myImportReplaceLabel.onclick = myImportInputHandler('replace'); 
     }
     if (myImportAppendLabel) { 
         myImportAppendLabel.onclick = myImportInputHandler('append'); 
