@@ -179,6 +179,7 @@ function myExportData() {
     myStatusMessage.textContent = "Timeline data exported successfully.";
 }
 
+
 /**
  * Handles the file input change event to load and import data.
  * @param {Event} event - The file change event.
@@ -201,39 +202,47 @@ function myImportData(event, myReplaceExisting) {
             }
 
             if (myReplaceExisting) {
-                // Clear and replace mode
+                // CLEAR EXISTING DATA IN REPLACE MODE
                 myItemsDataSet.clear();
-                myItemsDataSet.add(importedData);
-                myStatusMessage.textContent = `Successfully imported ${importedData.length} timeline items (REPLACING existing data).`;
-            } else {
-                // Append mode: Re-index imported data and check for hint uniqueness
-                let myCurrentId = myGetNextItemId() - 1; 
-                let myAppendCount = 0;
-                
-                const myReIndexedData = importedData.map(item => {
-                    myCurrentId++;
-                    myAppendCount++;
-                    // Apply uniqueness check to the imported hint/content
-                    // We check against item.content first, then fall back to item.hint, then a generic string
-                    const myUniqueContentHint = myEnsureUniqueHint(item.content || item.hint || `Item ${myCurrentId}`);
-
-                    return { 
-                        ...item, 
-                        id: myCurrentId, 
-                        content: myUniqueContentHint // Use the unique hint
-                    }; 
-                });
-                
-                // Update the max ID input to reflect the next available ID
-                myMaxIdInput.value = myCurrentId + 1; 
-
-                myItemsDataSet.add(myReIndexedData);
-                myStatusMessage.textContent = `Successfully appended ${myAppendCount} new timeline items to the existing data (IDs re-indexed).`;
             }
+            
+            // Determine the starting ID for the incoming data set.
+            // If replacing, start from the current myMaxIdInput value (which should be 2 or higher).
+            // If appending, start from the current myMaxIdInput value.
+            let myCurrentId = myGetNextItemId() - 1; // Get the next ID and decrement to use it as the starting point
+            let myAppendCount = 0;
+            
+            const myReIndexedData = importedData.map(item => {
+                myCurrentId++;
+                myAppendCount++;
+                
+                // Ensure unique hint using the newly assigned ID as the item is new/re-indexed
+                const myUniqueContentHint = myEnsureUniqueHint(item.content || item.hint || `Item ${myCurrentId}`);
+
+                return { 
+                    // Copy existing properties and override ID and content
+                    ...item, 
+                    id: myCurrentId, 
+                    content: myUniqueContentHint 
+                }; 
+            });
+            
+            // Add the new/re-indexed data
+            myItemsDataSet.add(myReIndexedData);
+            
+            // Update the max ID input to reflect the next available ID
+            myMaxIdInput.value = myCurrentId + 1; 
 
             mySaveToLocalStorage(); 
-            myUpdateMaxId(); 
-            myTimeline.fit(); 
+            myUpdateMaxId(); // Recalculate max ID in case of ID gaps in the imported set (redundant but safe)
+            //myTimeline.fit(); 
+            
+            if (myReplaceExisting) {
+                 myStatusMessage.textContent = `Successfully imported ${myAppendCount} timeline items (REPLACING existing data and re-indexing IDs).`;
+            } else {
+                 myStatusMessage.textContent = `Successfully appended ${myAppendCount} new timeline items (IDs re-indexed).`;
+            }
+
         } catch (error) {
             console.error("Import error:", error);
             myStatusMessage.textContent = "Import failed: Invalid JSON file or data structure.";
@@ -247,6 +256,10 @@ function myImportData(event, myReplaceExisting) {
     };
     reader.readAsText(file);
 }
+
+
+
+
 
 // =========================================================================
 // --- CONTENT RETRIEVAL FUNCTIONS (Injected into Content Script) ---
